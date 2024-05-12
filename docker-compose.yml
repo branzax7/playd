@@ -1,0 +1,78 @@
+version: '3.3'
+
+services:
+  influxdb:
+    image: influxdb:1.8
+    logging:
+      driver: json-file
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_DB=mqtt_data
+      - INFLUXDB_HTTP_AUTH_ENABLED=false
+    networks:
+      - influx_network
+      - grafana_network
+    
+
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+      - mosquitto_config:/mosquitto/config
+    environment:
+      - MOSQUITTO_USERNAME=mihail
+      - MOSQUITTO_PASSWORD=mihail
+    networks:
+      - backend_network
+
+  adapter:
+    # build: .
+    image: mihail17/adapter4
+    depends_on:
+      - mosquitto
+      - influxdb
+    environment:
+      - MQTT_HOST=mosquitto
+      - MQTT_PORT=1883
+      - INFLUXDB_HOST=influxdb
+      - INFLUXDB_PORT=8086
+      - DEBUG_DATA_FLOW=true
+    networks:
+      - backend_network
+      - influx_network
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    depends_on:
+      - influxdb
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana:/etc/grafana/provisioning
+    networks:
+      - grafana_network
+      - influx_network
+    environment:
+      - GF_SECURITY_ADMIN_USER=asistent
+      - GF_SECURITY_ADMIN_PASSWORD=grafanaSPRC2023
+  
+
+volumes:
+  influxdb_data:
+  mosquitto_data:
+  mosquitto_log:
+  mosquitto_config:
+  grafana_data:
+
+networks:
+  backend_network:
+  grafana_network:
+  influx_network:
